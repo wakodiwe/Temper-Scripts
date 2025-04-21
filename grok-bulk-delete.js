@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ChatGPT Sidebar Checkboxes
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Adds checkboxes next to ChatGPT sidebar chat titles and shows chat number on click
+// @version      1.2
+// @description  Adds checkboxes next to ChatGPT sidebar chat titles, keeps them checked, and shows all checked chat numbers in alert
 // @author       Grok
 // @match        https://chatgpt.com/*
 // @grant        none
@@ -11,7 +11,6 @@
 (function() {
     'use strict';
 
-    // Funktion, um auf ein Element zu warten
     function waitForElement(selector, callback, timeout = 10000) {
         const start = Date.now();
         const checkElement = () => {
@@ -29,7 +28,6 @@
         checkElement();
     }
 
-    // Funktion, um Checkboxen hinzuzufügen
     function addCheckboxes() {
         console.log('Füge Checkboxen hinzu');
         const chatItems = document.querySelectorAll('nav a[href^="/c/"]');
@@ -37,7 +35,7 @@
 
         if (chatItems.length === 0) {
             console.warn('Keine Chats gefunden. Sidebar sichtbar?');
-            setTimeout(addCheckboxes, 1000); // Erneut versuchen
+            setTimeout(addCheckboxes, 1000);
             return;
         }
 
@@ -46,13 +44,20 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.style.cssText = 'margin-right: 10px; vertical-align: middle; width: 22px; height: 22px; position: relative; z-index: 10000; border: 2px solid black; background: white; cursor: pointer; accent-color: blue; outline: 2px solid transparent; box-shadow: 0 0 5px rgba(0,0,0,0.5); appearance: auto;';
-                checkbox.dataset.chatNumber = index + 1; // Speichere Chat-Nummer
+                checkbox.dataset.chatNumber = index + 1;
                 checkbox.addEventListener('click', (event) => {
-                    event.stopPropagation(); // Verhindert Chat-Öffnung
-                    checkbox.checked = !checkbox.checked; // Toggle checked-Status
-                    checkbox.setAttribute('checked', checkbox.checked.toString()); // DOM-Konsistenz
+                    event.stopPropagation();
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.setAttribute('checked', checkbox.checked.toString());
                     console.log(`Checkbox ${index + 1} geklickt, checked: ${checkbox.checked}, DOM checked: ${checkbox.getAttribute('checked')}`);
-                    alert(`Chat ${checkbox.dataset.chatNumber}.`);
+
+                    const checkedCheckboxes = document.querySelectorAll('nav a[href^="/c/"] input[type="checkbox"][checked]');
+                    const chatNumbers = Array.from(checkedCheckboxes)
+                        .map(cb => cb.dataset.chatNumber)
+                        .sort((a, b) => a - b);
+                    const alertMessage = chatNumbers.length > 0 ? `Chats ${chatNumbers.join(',')}.` : 'Keine Chats ausgewählt.';
+                    console.log(`Alert-Message: ${alertMessage}`);
+                    alert(alertMessage);
                 });
                 checkbox.addEventListener('change', () => {
                     console.log(`Checkbox ${index + 1} geändert, checked: ${checkbox.checked}, DOM checked: ${checkbox.getAttribute('checked')}`);
@@ -70,18 +75,14 @@
                     console.warn(`Kein Titel-Container für Chat-Item ${index + 1} gefunden`);
                     item.style.position = 'relative';
                     item.style.zIndex = '1000';
-                    item.prepend(checkbox); // Fallback
+                    item.prepend(checkbox);
                 }
             }
         });
     }
 
-    // Hauptfunktion
     function init() {
-        // Checkboxen automatisch hinzufügen
         addCheckboxes();
-
-        // Beobachter für dynamische Sidebar-Änderungen
         const observer = new MutationObserver(() => {
             console.log('Sidebar-Änderung erkannt, überprüfe Checkboxen');
             addCheckboxes();
@@ -91,7 +92,6 @@
         });
     }
 
-    // Sidebar laden
     waitForElement('nav', () => {
         console.log('Sidebar geladen, starte Skript');
         init();
